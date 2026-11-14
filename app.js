@@ -123,11 +123,40 @@ function drawScene() {
     drawAstronaut(635, GROUND_Y);
     drawAstronaut(652, GROUND_Y);
   }
+
+
+  // 3. Solar Array & Ice Drill
+  // Сонячна панель на опорі
+  ctx.fillStyle = d.sunE > 0 ? '#1c56a8' : '#102544';
+  ctx.fillRect(50, GROUND_Y - 55, 140, 24);
+  ctx.strokeStyle = '#7fb0ff';
+  ctx.strokeRect(50, GROUND_Y - 55, 140, 24);
+
+  ctx.fillStyle = '#8fa4b5';
+  ctx.fillRect(116, GROUND_Y - 31, 8, 31);
+
+  const dustPct = (1 - s.dustEff) * 100;
+  drawText('SOLAR ARRAY', 120, GROUND_Y - 75, '#3de0ff', 11);
+  drawText(fmt(d.solarKW) + ' kW | Dust ' + fmt(dustPct, 0) + '%', 120, GROUND_Y - 62, '#ffd23d', 10);
+  drawHelp(202, GROUND_Y - 68, 'solar');
+
+  // Підземний бур льоду
+  ctx.fillStyle = '#25394a';
+  ctx.fillRect(135, GROUND_Y + 15, 30, 110);
+  ctx.strokeStyle = '#46b4ff';
+  ctx.strokeRect(135, GROUND_Y + 15, 30, 110);
+
+  drawText('ICE DRILL', 150, GROUND_Y + 142, '#3de0ff', 11);
+  drawText(fmt(d.ice, 2) + ' L/h', 150, GROUND_Y + 155, '#46b4ff', 10);
+  drawHelp(198, GROUND_Y + 145, 'ice');
 }
 
 
 //ЗАГЛУШКА
 const K = { SHIELD_CAP: 900 };
-const sim = { s: { shield: 700, regolith: 30, eva: { mode: null, left: 0 } }, d: { o2kPa: 21.2, co2ppm: 700, sigma: 100, sunE: 0.85, phase: 1.1, speExt: 0 } };
+const sim = {
+  s: { shield: 700, regolith: 30, dustEff: 0.85, eva: { mode: null, left: 0 } },
+  d: { o2kPa: 21.2, co2ppm: 700, sigma: 100, sunE: 0.85, phase: 1.1, speExt: 0, solarKW: 18.4, ice: 2.45 }
+};
 resizeCanvas();
 drawScene();
