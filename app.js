@@ -169,14 +169,56 @@ function drawScene() {
 
   drawSubTank(335, 'TANK ' + fmt(s.tank, 0) + 'L', s.tank / K.TANK_CAP, '#1f7ae0');
   drawSubTank(485, 'BATT ' + fmt(s.battery, 0) + 'kWh', s.battery / K.BATT_CAP, '#d4a017');
+
+
+  
+
+  // Гідропонна теплиця (правий фланг поруч із куполом)
+  ctx.fillStyle = 'rgba(220, 60, 190, ' + (0.08 + 0.25 * sim.ctl.led) + ')';
+  ctx.fillRect(680, GROUND_Y - 75, 130, 75);
+  ctx.strokeStyle = '#3de0ff';
+  ctx.strokeRect(680, GROUND_Y - 75, 130, 75);
+
+  // Лоток із рослинами та індикатор здоров'я врожаю
+  ctx.fillStyle = '#183328';
+  ctx.fillRect(692, GROUND_Y - 24, 106, 12);
+  ctx.fillStyle = '#3dffa0';
+  ctx.fillRect(692, GROUND_Y - 24, 106 * s.crop, 12);
+
+  drawText('HYDROPONICS', 745, GROUND_Y - 90, '#3de0ff', 11);
+  drawText(fmt(d.yield, 0) + ' kcal/h | Crop ' + fmt(s.crop * 100, 0) + '%', 745, GROUND_Y - 42, '#3dffa0', 10);
+  drawHelp(822, GROUND_Y - 82, 'hydro');
+
+  // Статус виходу астронавтів на поверхню (EVA)
+  if (s.eva.left > 0) {
+    drawText('[EVA IN PROGRESS: ' + s.eva.mode.toUpperCase() + ']', 745, GROUND_Y + 35, '#ffb02e', 11);
+  }
+  drawHelp(745, GROUND_Y + 55, 'eva');
+
+  // Ядерний реактор Kilopower
+  const nucFrac = sim.ctl.nuc / 12;
+  ctx.fillStyle = 'rgba(255, 120, 30, ' + (0.15 + 0.5 * nucFrac) + ')';
+  ctx.beginPath();
+  ctx.arc(900, GROUND_Y - 45, 22 + 18 * nucFrac, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = '#2d3742';
+  ctx.fillRect(882, GROUND_Y - 75, 36, 75);
+  ctx.strokeStyle = '#ffb02e';
+  ctx.strokeRect(882, GROUND_Y - 75, 36, 75);
+
+  drawText('REACTOR', 900, GROUND_Y - 92, '#3de0ff', 11);
+  drawText(fmt(d.nucKW, 1) + ' kWe', 900, GROUND_Y - 80, '#ffd23d', 10);
+  drawHelp(945, GROUND_Y - 85, 'reactor');
 }
 
 
 //ЗАГЛУШКА
 const K = { SHIELD_CAP: 900, TANK_CAP: 700, BATT_CAP: 120 };
 const sim = {
-  s: { shield: 700, tank: 450, battery: 95, regolith: 30, dustEff: 0.85, eva: { mode: null, left: 0 } },
-  d: { o2kPa: 21.2, co2ppm: 700, sigma: 100, sunE: 0.85, phase: 1.1, speExt: 0, solarKW: 18.4, ice: 2.45 }
+  ctl: { led: 0.8, nuc: 8 },
+  s: { shield: 700, tank: 450, battery: 95, regolith: 30, dustEff: 0.85, crop: 0.92, eva: { mode: null, left: 0 } },
+  d: { o2kPa: 21.2, co2ppm: 700, sigma: 100, sunE: 0.85, phase: 1.1, speExt: 0, solarKW: 18.4, ice: 2.45, yield: 320, nucKW: 8.0 }
 };
 resizeCanvas();
 drawScene();
