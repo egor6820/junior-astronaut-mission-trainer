@@ -2,6 +2,8 @@
 const canvas = document.getElementById('view'), ctx = canvas.getContext('2d');
 const VIEW_W = 1000, VIEW_H = 600, GROUND_Y = 420, DOME_X = 460;
 let viewScale = 1, viewOffsetX = 0, viewOffsetY = 0;
+let animTime = 0;
+
 const helpHits = [], STARS = [];
 for (let i = 0; i < 35; i++) {
   STARS.push({ x: Math.random() * VIEW_W, y: Math.random() * (GROUND_Y - 30) });
@@ -43,6 +45,31 @@ function drawAstronaut(x, y) {
   ctx.fill();
   ctx.fillStyle = '#ff9f1c';
   ctx.fillRect(x - 2, y - 20, 5, 3);
+}
+
+function drawPipe(points, color, active, reverse) {
+  // Ламана лінію труби по точках
+  ctx.beginPath();
+  points.forEach(([x, y], index) => {
+    if (index === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  });
+
+  // Шар 1: нерухомий корпус труби
+  ctx.setLineDash([]);
+  ctx.strokeStyle = '#16344d';
+  ctx.lineWidth = 5;
+  ctx.stroke();
+
+  // Шар 2: рухомий кольоровий потік (пунктир)
+  if (active) {
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 3;
+    ctx.setLineDash([6, 8]);
+    ctx.lineDashOffset = (reverse ? 1 : -1) * animTime * 28;
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
 }
 
 function drawScene() {
@@ -171,7 +198,7 @@ function drawScene() {
   drawSubTank(485, 'BATT ' + fmt(s.battery, 0) + 'kWh', s.battery / K.BATT_CAP, '#d4a017');
 
 
-  
+
 
   // Гідропонна теплиця (правий фланг поруч із куполом)
   ctx.fillStyle = 'rgba(220, 60, 190, ' + (0.08 + 0.25 * sim.ctl.led) + ')';
@@ -210,6 +237,15 @@ function drawScene() {
   drawText('REACTOR', 900, GROUND_Y - 92, '#3de0ff', 11);
   drawText(fmt(d.nucKW, 1) + ' kWe', 900, GROUND_Y - 80, '#ffd23d', 10);
   drawHelp(945, GROUND_Y - 85, 'reactor');
+
+
+  // Інженерні труби та кабелі між модулями бази
+  drawPipe([[120, GROUND_Y], [120, 510], [510, 510], [510, 480]], '#ffd23d', d.solarKW > 0.1);        // Сонце - Акумулятор
+  drawPipe([[900, GROUND_Y], [900, 520], [530, 520], [530, 480]], '#ffd23d', d.nucKW > 0.1);          // Реактор - Акумулятор
+  drawPipe([[150, 520], [340, 520], [340, 480]], '#46b4ff', d.ice > 0.01);                          // Бур льоду - Бак води
+  drawPipe([[360, 440], [320, 440], [320, 390]], '#46b4ff', Math.abs(d.pump) > 0.1, d.pump < 0);    // Бак - Водяна стіна
+  drawPipe([[580, 380], [680, 380]], '#ff4a5e', d.cropCO2 > 0.001);                                 // CO2: Купол - Теплиця
+  drawPipe([[680, 400], [580, 400]], '#3dffa0', d.cropO2 > 0.001);                                  // O2: Теплиця - Купол
 }
 
 
@@ -218,7 +254,13 @@ const K = { SHIELD_CAP: 900, TANK_CAP: 700, BATT_CAP: 120 };
 const sim = {
   ctl: { led: 0.8, nuc: 8 },
   s: { shield: 700, tank: 450, battery: 95, regolith: 30, dustEff: 0.85, crop: 0.92, eva: { mode: null, left: 0 } },
-  d: { o2kPa: 21.2, co2ppm: 700, sigma: 100, sunE: 0.85, phase: 1.1, speExt: 0, solarKW: 18.4, ice: 2.45, yield: 320, nucKW: 8.0 }
+  d: { o2kPa: 21.2, co2ppm: 700, sigma: 100, sunE: 0.85, phase: 1.1, speExt: 0, solarKW: 18.4, ice: 2.45, yield: 320, nucKW: 8.0, pump: 1.5, cropCO2: 0.05, cropO2: 0.04 }
 };
 resizeCanvas();
-drawScene();
+//Анімація для труб та кабелів, що рухаються пунктиром
+function testLoop(t) {
+  animTime = t / 1000;
+  drawScene();
+  requestAnimationFrame(testLoop);
+}
+requestAnimationFrame(testLoop);
