@@ -1,8 +1,36 @@
-// Clean 2D Technical Cross-Section Schematic on Canvas (#view)
+'use strict';
+let sim = null, speed = 1, savedSpeed = 1, modalOpen = false;
+let accumulator = 0, animTime = 0, uiTimer = 0, endShown = false, winShown = false;
+
+const CONTROL_NAMES = ['pump', 'ogs', 'scrub', 'led', 'drill', 'nuc'];
+const sliders = {}, valueLabels = {};
+for (let i = 0; i < CONTROL_NAMES.length; i++) {
+  const name = CONTROL_NAMES[i];
+  sliders[name] = document.getElementById('c_' + name);
+  valueLabels[name] = document.getElementById('v_' + name);
+}
+
+const ui = {
+  clockMain: document.getElementById('clockMain'), clockSub: document.getElementById('clockSub'),
+  missionBar: document.getElementById('missionBar'), evaBar: document.getElementById('evaBar'),
+  evaText: document.getElementById('v_eva'), evaClean: document.getElementById('evaClean'),
+  evaHeap: document.getElementById('evaHeap'), loads: document.getElementById('loads'),
+  cards: document.getElementById('cards'), stores: document.getElementById('stores'),
+  assistant: document.getElementById('assistant'), log: document.getElementById('log'),
+  modal: document.getElementById('modal'), modalTitle: document.getElementById('modalTitle'),
+  modalBody: document.getElementById('modalBody'), modalActions: document.getElementById('modalActions'),
+  missionSelect: document.getElementById('missionSelect'), speedButtons: document.querySelectorAll('#speedBox button')
+};
+
+function fmt(val, digits) {
+  return Number(val).toFixed(digits === undefined ? 1 : digits);
+}
+
+
+// 2D Technical Cross-Section Schematic on Canvas
 const canvas = document.getElementById('view'), ctx = canvas.getContext('2d');
 const VIEW_W = 1000, VIEW_H = 600, GROUND_Y = 420, DOME_X = 460;
 let viewScale = 1, viewOffsetX = 0, viewOffsetY = 0;
-let animTime = 0;
 
 const helpHits = [], STARS = [];
 for (let i = 0; i < 35; i++) {
@@ -248,16 +276,73 @@ function drawScene() {
   drawPipe([[680, 400], [580, 400]], '#3dffa0', d.cropO2 > 0.001);                                  // O2: Теплиця - Купол
 }
 
+function updateUI() {
+  const s = sim.s, d = sim.d, ctl = sim.ctl;
+
+  // Верхній годинник і смуга прогресу місії
+  const day = Math.floor(s.t / 24) + 1;
+  const hr = String(Math.floor(s.t % 24)).padStart(2, '0');
+  ui.clockMain.textContent = 'T+' + Math.floor(s.t) + ' h (Day ' + day + ', ' + hr + ':00)';
+
+  const phaseTag = d.sunE > 0
+    ? '[DAY] Sun ' + fmt(Math.asin(d.sunE) * 57.3, 0) + ' deg'
+    : '[NIGHT] Ext ' + fmt(d.textC, 0) + ' C';
+  ui.clockSub.textContent = phaseTag + ' | Goal ' + sim.sc.goal + ' h' + (s.won ? ' [OK]' : '');
+  ui.missionBar.style.width = Math.min(100, (s.t / sim.sc.goal) * 100) + '%';
+
+  // Підписи під 6 повзунками керування
+  const dir = d.pump > 0.01 ? 'Tank -> Wall ' : d.pump < -0.01 ? 'Wall -> Tank ' : 'Idle ';
+  valueLabels.pump.textContent = dir + fmt(Math.abs(d.pump)) + ' L/h | ' + fmt(d.loads.pump, 2) + ' kW';
+  valueLabels.ogs.textContent = fmt(ctl.ogs * 100, 0) + '% | ' + fmt(d.ogsO2, 2) + ' kg O2/h | ' + fmt(d.loads.ogs, 2) + ' kW';
+  valueLabels.scrub.textContent = fmt(ctl.scrub * 100, 0) + '% | CO2 ' + fmt(d.removal, 2) + ' kg/h | ' + fmt(d.loads.scrub, 2) + ' kW';
+  valueLabels.led.textContent = fmt(ctl.led * 100, 0) + '% | ' + fmt(d.yield, 0) + ' kcal/h | ' + fmt(d.loads.led, 1) + ' kW';
+  valueLabels.drill.textContent = fmt(ctl.drill * 100, 0) + '% | ' + fmt(d.ice, 2) + ' L/h | ' + fmt(d.loads.drill, 1) + ' kW';
+  valueLabels.nuc.textContent = fmt(ctl.nuc, 1) + ' kWe | heat leak ' + fmt(K.REACTOR_HEAT * ctl.nuc, 1) + ' kW';
+}
+
+let lastTime = performance.now();
+function frame(now) {
+  const dt = Math.min(0.1, (now - lastTime) / 1000);
+  lastTime = now;
+  animTime += dt;
+  if (speed > 0 && !sim.s.over) {
+    accumulator += dt * speed;
+    let steps = 0;
+    while (accumulator >= K.STEP && steps < 40) {
+      sim.step(K.STEP);
+      accumulator -= K.STEP;
+      steps++;
+    }
+  }
+  uiTimer += dt;
+  if (uiTimer > 0.15) {
+    uiTimer = 0;
+    updateUI();
+  }
+  checkEnd();
+  drawScene();
+  requestAnimationFrame(frame);
+}
+
+
+
+
 
 //ЗАГЛУШКА
-const K = { SHIELD_CAP: 900, TANK_CAP: 700, BATT_CAP: 120 };
-const sim = {
-  ctl: { led: 0.8, nuc: 8 },
-  s: { shield: 700, tank: 450, battery: 95, regolith: 30, dustEff: 0.85, crop: 0.92, eva: { mode: null, left: 0 } },
-  d: { o2kPa: 21.2, co2ppm: 700, sigma: 100, sunE: 0.85, phase: 1.1, speExt: 0, solarKW: 18.4, ice: 2.45, yield: 320, nucKW: 8.0, pump: 1.5, cropCO2: 0.05, cropO2: 0.04 }
+const K = { SHIELD_CAP: 900, TANK_CAP: 700, BATT_CAP: 120, REACTOR_HEAT: 1.5, STEP: 0.25 };
+sim = {
+  sc: { goal: 168 },
+  ctl: { pump: 0.2, ogs: 0.15, scrub: 0.35, led: 0.8, drill: 0.2, nuc: 8 },
+  s: { t: 14, shield: 700, tank: 450, battery: 95, regolith: 30, dustEff: 0.85, crop: 0.92, eva: { mode: null, left: 0 } },
+  d: {
+    o2kPa: 21.2, co2ppm: 700, sigma: 100, sunE: 0.85, phase: 1.1, textC: 12, speExt: 0,
+    solarKW: 18.4, ice: 2.45, yield: 320, nucKW: 8.0, pump: 1.5, ogsO2: 0.14, removal: 0.16,
+    cropCO2: 0.05, cropO2: 0.04,
+    loads: { pump: 0.4, ogs: 1.2, scrub: 0.8, led: 3.2, drill: 1.5 }
+  }
 };
 resizeCanvas();
-//Анімація для труб та кабелів, що рухаються пунктиром
+updateUI();
 function testLoop(t) {
   animTime = t / 1000;
   drawScene();
