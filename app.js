@@ -17,6 +17,24 @@ function drawText(txt, x, y, color, size, align) {
   ctx.textAlign = align || 'center'; ctx.fillText(txt, x, y);
 }
 
+function fmt(val, digits) { return Number(val).toFixed(digits === undefined ? 1 : digits); }
+function drawHelp(x, y, key) {
+  helpHits.push({ x: x, y: y, key: key });
+  ctx.beginPath(); ctx.arc(x, y, 9, 0, Math.PI * 2);
+  ctx.fillStyle = '#0a2438'; ctx.fill(); ctx.strokeStyle = '#3de0ff'; ctx.lineWidth = 1.5; ctx.stroke();
+  drawText('?', x, y + 4, '#3de0ff', 12);
+}
+
+// Малювання Арки купола
+function drawDomeRing(outerR, innerR, color) {
+  ctx.beginPath();
+  ctx.arc(DOME_X, GROUND_Y, outerR, Math.PI, 0);
+  ctx.arc(DOME_X, GROUND_Y, innerR, 0, Math.PI, true);
+  ctx.closePath();
+  ctx.fillStyle = color;
+  ctx.fill();
+}
+
 function drawScene() {
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.fillStyle = '#030810'; ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -38,10 +56,12 @@ function drawScene() {
   ctx.fillStyle = '#1b2632'; ctx.fillRect(0, GROUND_Y, VIEW_W, VIEW_H - GROUND_Y);
   ctx.strokeStyle = '#3de0ff'; ctx.lineWidth = 2;
   ctx.beginPath(); ctx.moveTo(0, GROUND_Y); ctx.lineTo(VIEW_W, GROUND_Y); ctx.stroke();
+
 }
 
 
 //ЗАГЛУШКА
-const sim = { s: {}, d: { o2kPa: 21.2, sunE: 0, phase: 0, speExt: 0 } };
+const K = { SHIELD_CAP: 900 };
+const sim = { s: { shield: 700, regolith: 30 }, d: { o2kPa: 21.2, co2ppm: 700, sigma: 100, sunE: 0.85, phase: 1.1, speExt: 0 } };
 resizeCanvas();
 drawScene();
