@@ -35,6 +35,16 @@ function drawDomeRing(outerR, innerR, color) {
   ctx.fill();
 }
 
+function drawAstronaut(x, y) {
+  ctx.fillStyle = '#e8eef5';
+  ctx.fillRect(x - 4, y - 14, 8, 14);
+  ctx.beginPath();
+  ctx.arc(x, y - 18, 4.5, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#ff9f1c';
+  ctx.fillRect(x - 2, y - 20, 5, 3);
+}
+
 function drawScene() {
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.fillStyle = '#030810'; ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -98,11 +108,26 @@ function drawScene() {
   drawHelp(DOME_X + 135, GROUND_Y - rReg - 16, 'shield');
   drawHelp(DOME_X - 92, GROUND_Y - 46, 'ogs');
   drawHelp(DOME_X + 92, GROUND_Y - 46, 'sabatier');
+
+
+  // Астронавти в куполі та на виході EVA
+  drawAstronaut(DOME_X - 95, GROUND_Y);
+  drawAstronaut(DOME_X + 95, GROUND_Y);
+  if (s.eva.left <= 0) {
+    drawAstronaut(DOME_X - 112, GROUND_Y);
+    drawAstronaut(DOME_X + 112, GROUND_Y);
+  } else if (s.eva.mode === 'clean') {
+    drawAstronaut(215, GROUND_Y);
+    drawAstronaut(232, GROUND_Y);
+  } else {
+    drawAstronaut(635, GROUND_Y);
+    drawAstronaut(652, GROUND_Y);
+  }
 }
 
 
 //ЗАГЛУШКА
 const K = { SHIELD_CAP: 900 };
-const sim = { s: { shield: 700, regolith: 30 }, d: { o2kPa: 21.2, co2ppm: 700, sigma: 100, sunE: 0.85, phase: 1.1, speExt: 0 } };
+const sim = { s: { shield: 700, regolith: 30, eva: { mode: null, left: 0 } }, d: { o2kPa: 21.2, co2ppm: 700, sigma: 100, sunE: 0.85, phase: 1.1, speExt: 0 } };
 resizeCanvas();
 drawScene();
