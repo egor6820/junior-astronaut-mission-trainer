@@ -149,13 +149,33 @@ function drawScene() {
   drawText('ICE DRILL', 150, GROUND_Y + 142, '#3de0ff', 11);
   drawText(fmt(d.ice, 2) + ' L/h', 150, GROUND_Y + 155, '#46b4ff', 10);
   drawHelp(198, GROUND_Y + 145, 'ice');
+
+  // 5. Subfloor Tanks (H2O & Batt), Hydroponics Bay & Kilopower Reactor
+  const drawSubTank = (x, label, frac, col) => {
+    // Колір корпуса резервуара
+    ctx.fillStyle = '#091724';
+    ctx.fillRect(x, GROUND_Y + 20, 90, 60);
+
+    // Кольоровий індикатор рівня
+    const h = Math.max(0, Math.min(1, frac)) * 56;
+    ctx.fillStyle = col;
+    ctx.fillRect(x + 2, GROUND_Y + 78 - h, 86, h);
+
+    // Рамка корпусу та підпис по центру
+    ctx.strokeStyle = '#2a6a8a';
+    ctx.strokeRect(x, GROUND_Y + 20, 90, 60);
+    drawText(label, x + 45, GROUND_Y + 54, '#fff', 10);
+  };
+
+  drawSubTank(335, 'TANK ' + fmt(s.tank, 0) + 'L', s.tank / K.TANK_CAP, '#1f7ae0');
+  drawSubTank(485, 'BATT ' + fmt(s.battery, 0) + 'kWh', s.battery / K.BATT_CAP, '#d4a017');
 }
 
 
 //ЗАГЛУШКА
-const K = { SHIELD_CAP: 900 };
+const K = { SHIELD_CAP: 900, TANK_CAP: 700, BATT_CAP: 120 };
 const sim = {
-  s: { shield: 700, regolith: 30, dustEff: 0.85, eva: { mode: null, left: 0 } },
+  s: { shield: 700, tank: 450, battery: 95, regolith: 30, dustEff: 0.85, eva: { mode: null, left: 0 } },
   d: { o2kPa: 21.2, co2ppm: 700, sigma: 100, sunE: 0.85, phase: 1.1, speExt: 0, solarKW: 18.4, ice: 2.45 }
 };
 resizeCanvas();
