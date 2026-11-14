@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Junior Astronaut Mission Trainer: ECLSS Tactical Sandbox</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header id="topbar">
+    <div class="brand">
+      <span class="logo">&#9672;</span>
+      <div>
+        <h1>JUNIOR ASTRONAUT MISSION TRAINER</h1>
+        <p>ECLSS Tactical Sandbox &middot; R∪D CIT KAI Student Research Society &middot; 4-crew Lunar Outpost</p>
+      </div>
+    </div>
+    <div class="top-controls">
+      <select id="missionSelect" title="Mission scenario">
+        <option value="1">Mission 1: Equilibrium Training</option>
+        <option value="2">Mission 2: X-Class Solar Flare Crisis</option>
+        <option value="3">Mission 3: 14-Day Lunar Night Survival</option>
+      </select>
+      <button id="btnBrief" class="btn">NASA Brief</button>
+      <div class="speed" id="speedBox">
+        <button data-speed="0">Pause</button>
+        <button data-speed="1" class="active">1&times;</button>
+        <button data-speed="4">4&times;</button>
+      </div>
+      <button id="btnReset" class="btn">&#8634; Restart</button>
+    </div>
+    <div id="clock">
+      <div id="clockMain">T+0 h</div>
+      <div id="clockSub">&nbsp;</div>
+      <div class="progress"><div id="missionBar"></div></div>
+    </div>
+  </header>
+
+  <main>
+    <aside id="left" class="panel">
+      <h2>ENGINEERING CONTROLS</h2>
+      <div class="ctl">
+        <div class="ctl-head"><label for="c_pump">Water-Wall &#8644; Internal Tank Pump</label><button class="help" data-help="shield">?</button></div>
+        <input type="range" id="c_pump" min="-100" max="100" step="1" value="0">
+        <div class="ctl-scale"><span>&larr; drain Wall</span><span>fill Wall &rarr;</span></div>
+        <div class="ctl-val" id="v_pump"></div>
+      </div>
+      <div class="ctl">
+        <div class="ctl-head"><label for="c_ogs">Electrolysis (OGS) Throttle</label><button class="help" data-help="ogs">?</button></div>
+        <input type="range" id="c_ogs" min="0" max="100" step="1" value="15">
+        <div class="ctl-val" id="v_ogs"></div>
+      </div>
+      <div class="ctl">
+        <div class="ctl-head"><label for="c_scrub">Sabatier / CO&#8322; Scrubber Power</label><button class="help" data-help="sabatier">?</button></div>
+        <input type="range" id="c_scrub" min="0" max="100" step="1" value="35">
+        <div class="ctl-val" id="v_scrub"></div>
+      </div>
+      <div class="ctl">
+        <div class="ctl-head"><label for="c_led">Hydroponics LED Power</label><button class="help" data-help="hydro">?</button></div>
+        <input type="range" id="c_led" min="0" max="100" step="1" value="50">
+        <div class="ctl-val" id="v_led"></div>
+      </div>
+      <div class="ctl">
+        <div class="ctl-head"><label for="c_drill">Ice Extractor Drill Power</label><button class="help" data-help="ice">?</button></div>
+        <input type="range" id="c_drill" min="0" max="100" step="1" value="20">
+        <div class="ctl-val" id="v_drill"></div>
+      </div>
+      <div class="ctl">
+        <div class="ctl-head"><label for="c_nuc">Kilopower Reactor Throttle</label><button class="help" data-help="reactor">?</button></div>
+        <input type="range" id="c_nuc" min="0" max="12" step="0.1" value="8">
+        <div class="ctl-val" id="v_nuc"></div>
+      </div>
+      <div class="ctl eva">
+        <div class="ctl-head"><label>EVA Crew (2 astronauts, 6 h)</label><button class="help" data-help="eva">?</button></div>
+        <button class="btn wide" id="evaClean">Send EVA: Clean Solar Dust</button>
+        <button class="btn wide" id="evaHeap">Send EVA: Heap Regolith</button>
+        <div class="progress eva-bar"><div id="evaBar"></div></div>
+        <div class="ctl-val" id="v_eva">Crew inside. Airlock ready.</div>
+      </div>
+      <h2>POWER BUDGET (kW)</h2>
+      <div id="loads"></div>
+    </aside>
+
+    <section id="center">
+      <canvas id="view"></canvas>
+    </section>
+
+    <aside id="right" class="panel">
+      <h2>PREDICTIVE ENGINEERING ASSISTANT</h2>
+      <div id="assistant"></div>
+      <h2>LIVE TELEMETRY</h2>
+      <div id="cards"></div>
+      <h2>STATION STORES &amp; SHIELD</h2>
+      <div id="stores"></div>
+      <h2>MISSION LOG</h2>
+      <div id="log"></div>
+    </aside>
+  </main>
+
+  <div id="modal" class="hidden">
+    <div class="modal-box">
+      <button id="modalClose" title="Close">&times;</button>
+      <h2 id="modalTitle"></h2>
+      <div id="modalBody"></div>
+      <div id="modalActions"></div>
+    </div>
+  </div>
+
+  <script src="physics.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
