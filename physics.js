@@ -428,7 +428,7 @@ class Sim {
     };
   }
 
-  // Окремий модульний метод перевірки аварійних порогів та перемоги
+  // Перевірка аварійних порогів та перемоги
   updateHazards(dt, d) {
     const s = this.s, h = s.haz;
     const stepTimer = (cur, isBad) => isBad ? cur + dt : Math.max(0, cur - 0.5 * dt);
