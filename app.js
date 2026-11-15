@@ -274,6 +274,37 @@ function drawScene() {
   drawPipe([[360, 440], [320, 440], [320, 390]], '#46b4ff', Math.abs(d.pump) > 0.1, d.pump < 0);    // Бак - Водяна стіна
   drawPipe([[580, 380], [680, 380]], '#ff4a5e', d.cropCO2 > 0.001);                                 // CO2: Купол - Теплиця
   drawPipe([[680, 400], [580, 400]], '#3dffa0', d.cropO2 > 0.001);                                  // O2: Теплиця - Купол
+
+
+
+  // 6. Radiation Lines & Top Banner
+  const isStorm = d.speExt > 0.3;
+  const rays = isStorm ? 14 : 4;
+  const penetrate = s.shield < sim.shieldSafe();
+  const stopY = penetrate ? GROUND_Y - 20 : GROUND_Y - rReg;
+
+  ctx.strokeStyle = isStorm ? '#ff5c8a' : '#ffe9a0';
+  ctx.lineWidth = 1.5;
+
+  for (let i = 0; i < rays; i++) {
+    const rx = DOME_X - 130 + ((i * 37 + Math.floor(animTime * 60)) % 260);
+    const ry = (animTime * 180 + i * 53) % stopY;
+    ctx.beginPath();
+    ctx.moveTo(rx, ry - 18);
+    ctx.lineTo(rx, ry);
+    ctx.stroke();
+  }
+
+  drawText('LUNAR OUTPOST ALPHA - ECLSS TECHNICAL SCHEMATIC', 16, 24, '#3de0ff', 12, 'left');
+
+  if (isStorm) {
+    ctx.fillStyle = 'rgba(180, 20, 40, 0.85)';
+    ctx.fillRect(280, 10, 440, 26);
+    drawText(
+      `[CRIT] SOLAR STORM: ${fmt(d.speExt, 1)} mSv/h EXT -> ${fmt(d.speIn, 2)} mSv/h HAB`,
+      500, 27, '#fff', 12
+    );
+  }
 }
 
 function updateUI() {
@@ -298,6 +329,25 @@ function updateUI() {
   valueLabels.led.textContent = fmt(ctl.led * 100, 0) + '% | ' + fmt(d.yield, 0) + ' kcal/h | ' + fmt(d.loads.led, 1) + ' kW';
   valueLabels.drill.textContent = fmt(ctl.drill * 100, 0) + '% | ' + fmt(d.ice, 2) + ' L/h | ' + fmt(d.loads.drill, 1) + ' kW';
   valueLabels.nuc.textContent = fmt(ctl.nuc, 1) + ' kWe | heat leak ' + fmt(K.REACTOR_HEAT * ctl.nuc, 1) + ' kW';
+
+
+  // Діаграма генерації та споживання електроенергії
+  const rows = [
+    ['Solar', d.solarKW, true],
+    ['Reactor', d.nucKW, true],
+    ['Base', d.loads.base, false],
+    ['HVAC', d.loads.hvac, false],
+    ['Electrolysis', d.loads.ogs, false],
+    ['Scrubber', d.loads.scrub, false],
+    ['Hydro LED', d.loads.led, false],
+    ['Ice Drill', d.loads.drill, false]
+  ];
+
+  ui.loads.innerHTML = rows.map(([label, kw, isGen]) => {
+    const width = Math.min(100, (kw / 30) * 100);
+    const rowClass = isGen ? 'load-row gen' : 'load-row';
+    return `<div class="${rowClass}"><span>${label}</span><div class="bar"><i style="width:${width}%"></i></div><span>${fmt(kw)}</span></div>`;
+  }).join('');
 }
 
 let lastTime = performance.now();
@@ -329,16 +379,20 @@ function frame(now) {
 
 
 //ЗАГЛУШКА
-const K = { SHIELD_CAP: 900, TANK_CAP: 700, BATT_CAP: 120, REACTOR_HEAT: 1.5, STEP: 0.25 };
+const K = { SHIELD_CAP: 900, TANK_CAP: 700, BATT_CAP: 120, REACTOR_HEAT: 1.5, STEP: 0.25, SIGMA_SAFE: 70, WATER_SIGMA: 0.1 };
 sim = {
   sc: { goal: 168 },
   ctl: { pump: 0.2, ogs: 0.15, scrub: 0.35, led: 0.8, drill: 0.2, nuc: 8 },
   s: { t: 14, shield: 700, tank: 450, battery: 95, regolith: 30, dustEff: 0.85, crop: 0.92, eva: { mode: null, left: 0 } },
   d: {
-    o2kPa: 21.2, co2ppm: 700, sigma: 100, sunE: 0.85, phase: 1.1, textC: 12, speExt: 0,
+    o2kPa: 21.2, co2ppm: 700, sigma: 100, sunE: 0.85, phase: 1.1, textC: 12,
+    speExt: 0, speIn: 0,
     solarKW: 18.4, ice: 2.45, yield: 320, nucKW: 8.0, pump: 1.5, ogsO2: 0.14, removal: 0.16,
     cropCO2: 0.05, cropO2: 0.04,
-    loads: { pump: 0.4, ogs: 1.2, scrub: 0.8, led: 3.2, drill: 1.5 }
+    loads: { base: 1.5, hvac: 2.1, pump: 0.4, ogs: 1.2, scrub: 0.8, led: 3.2, drill: 1.5 }
+  },
+  shieldSafe() {
+    return Math.max(150, (K.SIGMA_SAFE - this.s.regolith) / K.WATER_SIGMA);
   }
 };
 resizeCanvas();
