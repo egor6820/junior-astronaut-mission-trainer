@@ -468,7 +468,7 @@ class Sim {
   // Предикативний інженерний асистент (попереджає про загрози за 72 години)
   advisories() {
     const s = this.s, d = this.d, r = this.rates, list = [];
-    if (!d.o2kPa) return list;
+    if (d.o2kPa === undefined) return list;
 
     const add = (lvl, txt) => list.push({ lvl, txt });
     const hrs = (h) => h < 1 ? '<1 h' : `${h.toFixed(0)} h`;
