@@ -251,7 +251,7 @@ function drawScene() {
   helpHits.length = 0;
 
   const s = sim.s, d = sim.d;
-  if (!d.o2kPa) return;
+  if (d.o2kPa === undefined) return;
 
   // 1. Sky, Stars, Sun & Solar Storm Tint
   ctx.fillStyle = '#ffffff';
@@ -458,7 +458,7 @@ function drawScene() {
 
 function updateUI() {
   const s = sim.s, d = sim.d, ctl = sim.ctl;
-  if (!d.o2kPa) return;
+  if (d.o2kPa === undefined) return;
 
   // 1. Оновлення 10 карток телеметрії
   CARDS.forEach(c => {
@@ -626,6 +626,7 @@ function init() {
   ui.evaClean.onclick = () => { sim.startEVA('clean'); updateUI(); };
   ui.evaHeap.onclick = () => { sim.startEVA('heap'); updateUI(); };
 
+  
   // 5. Старт Місії 1 та запуск головного циклу анімації
   loadMission(1);
   requestAnimationFrame(frame);
