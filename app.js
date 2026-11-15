@@ -26,6 +26,98 @@ function fmt(val, digits) {
   return Number(val).toFixed(digits === undefined ? 1 : digits);
 }
 
+const BRIEFS = {
+  eclss: ['ISS ECLSS: Closed-Loop Life Support', 'The ISS Environmental Control &amp; Life Support System recycles ~98% of crew water. Electrolysis splits water into breathable O&#8322;, the CO&#8322; scrubber + Sabatier reactor recover water from exhaled air, and the Water Processor turns grey water back into potable water.'],
+  ogs: ['Oxygen Generation: Water Electrolysis', '<code>2 H&#8322;O &rarr; 2 H&#8322; + O&#8322;</code>. Each litre of water yields <code>0.89 kg O&#8322;</code> and <code>0.11 kg H&#8322;</code> at <code>4.5 kW per kg O&#8322;</code>. If the internal tank runs dry, OGS draws from the Water-Wall radiation shield!'],
+  sabatier: ['Sabatier Reaction &amp; CO&#8322; Scrubber', 'Crew exhale <code>0.17 kg CO&#8322;/h</code>. The scrubber captures CO&#8322; and the Sabatier reactor combines it with H&#8322; from electrolysis (<code>CO&#8322; + 4 H&#8322; &rarr; CH&#8324; + 2 H&#8322;O</code>) to recover 0.82 L of water per kg CO&#8322;.'],
+  hydro: ['Hydroponic Bay: Food, O&#8322; and CO&#8322; Sink', 'Photosynthesis uses LED light, water and CO&#8322; to grow food (up to 650 kcal/h at 8 kW) and produce bonus O&#8322;. Crops wilt if starved of light, water, CO&#8322; or comfortable temperature.'],
+  shield: ['Hydrogen-Rich Radiation Shielding (Water-Wall)', 'Hydrogen-rich water blocks Galactic Cosmic Rays and Solar Particle Events effectively. Total shielding is <code>sigma = regolith + 0.1 * Wall_L</code>. Keep <code>sigma &ge; 70 g/cm&sup2;</code> to protect the crew.'],
+  reactor: ['Kilopower Fission Reactor', 'Provides up to 12 kWe day and night, essential during the 336-hour lunar night. However, 30% of reactor output leaks into the habitat as waste heat that the HVAC must reject.'],
+  solar: ['Solar Array &amp; Lunar Dust', 'Generates up to 30 kW in sunlight and 0 kW at night. Electrostatic lunar dust degrades efficiency by 0.2%/h until cleaned by EVA.'],
+  ice: ['Ice Extractor Drill (ISRU)', 'Extracts up to 1.6 L/h of water from polar crater ice at 5 kW to replenish the internal tank and Water-Wall.'],
+  eva: ['Extravehicular Activity (EVA)', 'Two astronauts go outside for 6 hours to clean solar panels or heap regolith shielding (+2.5 g/cm&sup2;/h). Costs 1.5 kg airlock O&#8322; and leaves the EVA crew unshielded against solar storms.']
+};
+
+function openModal(title, html, actions = []) {
+  if (!modalOpen) savedSpeed = speed;
+  modalOpen = true;
+  setSpeed(0);
+
+  ui.modalTitle.innerHTML = title;
+  ui.modalBody.innerHTML = html;
+  ui.modalActions.innerHTML = '';
+
+  actions.forEach(({ label, fn }) => {
+    const btn = document.createElement('button');
+    btn.className = 'btn';
+    btn.textContent = label;
+    btn.onclick = fn;
+    ui.modalActions.appendChild(btn);
+  });
+
+  ui.modal.classList.remove('hidden');
+}
+
+function closeModal() {
+  if (!modalOpen) return;
+  modalOpen = false;
+  ui.modal.classList.add('hidden');
+  setSpeed(savedSpeed);
+}
+
+function showBrief(key) {
+  const brief = BRIEFS[key];
+  if (brief) {
+    openModal(`<span class="tag">NASA ENGINEERING BRIEF</span><br>${brief[0]}`, `<p>${brief[1]}</p>`);
+  }
+}
+
+function showMissionIntro() {
+  const sc = sim.sc;
+  const html = `${sc.brief}<p><b>Goal:</b> survive ${sc.goal} h. Click any <b>?</b> icon for NASA engineering briefs.</p>`;
+  openModal(`<span class="tag">MISSION BRIEFING</span><br>${sc.name}`, html, [
+    { label: 'Begin Mission', fn: closeModal }
+  ]);
+}
+
+function readSliders() {
+  CONTROL_NAMES.forEach(k => {
+    const val = parseFloat(sliders[k].value);
+    sim.ctl[k] = (k === 'nuc') ? val : val / 100;
+  });
+  sim.refresh();
+  updateUI();
+}
+
+function syncSliders() {
+  CONTROL_NAMES.forEach(k => {
+    sliders[k].value = (k === 'nuc') ? sim.ctl[k] : sim.ctl[k] * 100;
+  });
+}
+
+function setSpeed(s) {
+  speed = s;
+  ui.speedButtons.forEach(btn => {
+    btn.classList.toggle('active', Number(btn.dataset.speed) === s);
+  });
+}
+
+function loadMission(id) {
+  sim = new Sim(id);
+  accumulator = 0;
+  endShown = false;
+  winShown = false;
+  ui.missionSelect.value = id;
+
+  syncSliders();
+  setSpeed(1);
+  modalOpen = false;
+  ui.modal.classList.add('hidden');
+
+  updateUI();
+  showMissionIntro();
+}
+
 
 // 2D Technical Cross-Section Schematic on Canvas
 const canvas = document.getElementById('view'), ctx = canvas.getContext('2d');
@@ -47,7 +139,6 @@ function drawText(txt, x, y, color, size, align) {
   ctx.textAlign = align || 'center'; ctx.fillText(txt, x, y);
 }
 
-function fmt(val, digits) { return Number(val).toFixed(digits === undefined ? 1 : digits); }
 function drawHelp(x, y, key) {
   helpHits.push({ x: x, y: y, key: key });
   ctx.beginPath(); ctx.arc(x, y, 9, 0, Math.PI * 2);
@@ -75,7 +166,74 @@ function drawAstronaut(x, y) {
   ctx.fillRect(x - 2, y - 20, 5, 3);
 }
 
-function drawPipe(points, color, active, reverse) {
+
+
+
+// Перевірка порогів тривоги
+function band(v, critLow, warnLow, warnHigh, critHigh) {
+  if ((critLow !== null && v < critLow) || (critHigh !== null && v > critHigh)) return 'crit';
+  if ((warnLow !== null && v < warnLow) || (warnHigh !== null && v > warnHigh)) return 'warn';
+  return 'ok';
+}
+
+const CARDS = [
+  { id: 'o2', title: 'O2 Partial Pressure', unit: 'kPa', dec: 2, max: 30, val: s => s.d.o2kPa, rate: s => [s.rates.o2kPa, 2, 'kPa/h'], st: v => band(v, 17, 19.5, 23.1, 30) },
+  { id: 'co2', title: 'CO2 Concentration', unit: 'ppm', dec: 0, max: 10000, val: s => s.d.co2ppm, rate: s => [s.rates.co2ppm, 0, 'ppm/h'], st: v => band(v, null, null, 5000, 8000) },
+  { id: 'shield', title: 'Hull Water-Wall', unit: 'L', dec: 0, max: K.SHIELD_CAP, val: s => s.s.shield, rate: s => [s.rates.shield, 1, 'L/h'], st: (v, s) => v < s.shieldSafe() ? 'crit' : v < s.shieldSafe() * 1.25 ? 'warn' : 'ok' },
+  { id: 'tank', title: 'Internal Water Tank', unit: 'L', dec: 0, max: K.TANK_CAP, val: s => s.s.tank, rate: s => [s.rates.tank, 1, 'L/h'], st: v => band(v, 30, 120, null, null) },
+  { id: 'food', title: 'Food Supply', unit: 'kcal', dec: 0, max: 80000, val: s => s.s.food, rate: s => [s.rates.food, 0, 'kcal/h'], st: v => band(v, 6000, 24000, null, null) },
+  { id: 'dose', title: 'Radiation Dose', unit: 'mSv', dec: 2, max: K.DOSE_LIMIT, val: s => s.s.dose, rate: s => [s.rates.dose, 3, 'mSv/h'], st: v => band(v, null, null, 60, 110) },
+  { id: 'net', title: 'Net Power', unit: 'kW', dec: 1, max: 30, val: s => s.d.netKW, sub: s => `Gen ${fmt(s.d.genKW)} | Load ${fmt(s.d.loadKW)}`, st: (v, s) => s.d.pf < 0.999 ? 'crit' : v < 0 ? 'warn' : 'ok' },
+  { id: 'batt', title: 'Battery Storage', unit: 'kWh', dec: 1, max: K.BATT_CAP, val: s => s.s.battery, rate: s => [s.rates.battery, 1, 'kWh/h'], st: v => band(v, 10, 30, null, null) },
+  { id: 'temp', title: 'Habitat Temp', unit: 'degC', dec: 1, max: 40, val: s => s.s.temp, rate: s => [s.rates.temp, 2, 'C/h'], st: v => band(v, 14, 18, 25, 28) },
+  { id: 'solar', title: 'Solar Output', unit: 'kW', dec: 1, max: 30, val: s => s.d.solarKW, sub: s => `Dust eff: ${fmt(s.s.dustEff * 100, 0)}%`, st: () => 'ok' }
+];
+
+function buildCards() {
+  ui.cards.innerHTML = '';
+  CARDS.forEach(c => {
+    const div = document.createElement('div');
+    div.className = 'card';
+    div.innerHTML = `
+      <h4>${c.title}</h4>
+      <div><span class="val">-</span><span class="unit">${c.unit}</span></div>
+      <div class="dbar"><i></i></div>
+      <div class="rate"></div>
+    `;
+    ui.cards.appendChild(div);
+    c.el = div;
+    c.valEl = div.querySelector('.val');
+    c.barEl = div.querySelector('.dbar i');
+    c.rateEl = div.querySelector('.rate');
+  });
+}
+
+
+
+function drawScene() {
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.fillStyle = '#030810'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.setTransform(viewScale, 0, 0, viewScale, viewOffsetX, viewOffsetY);
+  helpHits.length = 0;
+  const s = sim.s, d = sim.d;
+  if (!d.o2kPa) return;
+  // 1. Sky, Stars, Sun & Solar Storm Tint
+  ctx.fillStyle = '#ffffff';
+  for (let i = 0; i < STARS.length; i++) {
+    ctx.fillRect(STARS[i].x, STARS[i].y, 2, 2);
+  }
+  if (d.speExt > 0.3) { ctx.fillStyle = 'rgba(200, 30, 50, 0.18)'; ctx.fillRect(0, 0, VIEW_W, GROUND_Y); }
+  if (d.sunE > 0) {
+    ctx.beginPath(); ctx.arc(500 - 420 * Math.cos(d.phase), GROUND_Y - 310 * Math.sin(d.phase), 18, 0, Math.PI * 2);
+    ctx.fillStyle = '#ffd23d'; ctx.fill();
+  }
+  // 2. Ground & Animated Flow Pipes
+  ctx.fillStyle = '#1b2632'; ctx.fillRect(0, GROUND_Y, VIEW_W, VIEW_H - GROUND_Y);
+  ctx.strokeStyle = '#3de0ff'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(0, GROUND_Y); ctx.lineTo(VIEW_W, GROUND_Y); ctx.stroke();
+
+
+  function drawPipe(points, color, active, reverse) {
   // Ламана лінію труби по точках
   ctx.beginPath();
   points.forEach(([x, y], index) => {
@@ -99,28 +257,6 @@ function drawPipe(points, color, active, reverse) {
     ctx.setLineDash([]);
   }
 }
-
-function drawScene() {
-  ctx.setTransform(1, 0, 0, 1, 0, 0);
-  ctx.fillStyle = '#030810'; ctx.fillRect(0, 0, canvas.width, canvas.height);
-  ctx.setTransform(viewScale, 0, 0, viewScale, viewOffsetX, viewOffsetY);
-  helpHits.length = 0;
-  const s = sim.s, d = sim.d;
-  if (!d.o2kPa) return;
-  // 1. Sky, Stars, Sun & Solar Storm Tint
-  ctx.fillStyle = '#ffffff';
-  for (let i = 0; i < STARS.length; i++) {
-    ctx.fillRect(STARS[i].x, STARS[i].y, 2, 2);
-  }
-  if (d.speExt > 0.3) { ctx.fillStyle = 'rgba(200, 30, 50, 0.18)'; ctx.fillRect(0, 0, VIEW_W, GROUND_Y); }
-  if (d.sunE > 0) {
-    ctx.beginPath(); ctx.arc(500 - 420 * Math.cos(d.phase), GROUND_Y - 310 * Math.sin(d.phase), 18, 0, Math.PI * 2);
-    ctx.fillStyle = '#ffd23d'; ctx.fill();
-  }
-  // 2. Ground & Animated Flow Pipes
-  ctx.fillStyle = '#1b2632'; ctx.fillRect(0, GROUND_Y, VIEW_W, VIEW_H - GROUND_Y);
-  ctx.strokeStyle = '#3de0ff'; ctx.lineWidth = 2;
-  ctx.beginPath(); ctx.moveTo(0, GROUND_Y); ctx.lineTo(VIEW_W, GROUND_Y); ctx.stroke();
 
   // 4. Central Habitat Dome (Regolith + Water-Wall + Interior)
   const rInner = 135;
@@ -309,29 +445,53 @@ function drawScene() {
 
 function updateUI() {
   const s = sim.s, d = sim.d, ctl = sim.ctl;
+  if (!d.o2kPa) return;
 
-  // Верхній годинник і смуга прогресу місії
+  // 1. Оновлення 10 карток телеметрії
+  CARDS.forEach(c => {
+    const v = c.val(sim);
+    const st = c.st(v, sim);
+    c.el.className = st === 'ok' ? 'card' : `card ${st}`;
+    c.valEl.textContent = fmt(v, c.dec);
+    c.barEl.style.width = `${Math.max(0, Math.min(100, (Math.abs(v) / c.max) * 100))}%`;
+
+    if (c.sub) {
+      c.rateEl.textContent = c.sub(sim);
+    } else {
+      const [rateVal, dec, unit] = c.rate(sim);
+      const sign = rateVal >= 0 ? '+' : '';
+      c.rateEl.textContent = `dX/dt: ${sign}${fmt(rateVal, dec)} ${unit}`;
+    }
+  });
+
+  // 2. Верхній годинник і прогрес місії
   const day = Math.floor(s.t / 24) + 1;
   const hr = String(Math.floor(s.t % 24)).padStart(2, '0');
-  ui.clockMain.textContent = 'T+' + Math.floor(s.t) + ' h (Day ' + day + ', ' + hr + ':00)';
+  ui.clockMain.textContent = `T+${Math.floor(s.t)} h (Day ${day}, ${hr}:00)`;
 
   const phaseTag = d.sunE > 0
-    ? '[DAY] Sun ' + fmt(Math.asin(d.sunE) * 57.3, 0) + ' deg'
-    : '[NIGHT] Ext ' + fmt(d.textC, 0) + ' C';
-  ui.clockSub.textContent = phaseTag + ' | Goal ' + sim.sc.goal + ' h' + (s.won ? ' [OK]' : '');
-  ui.missionBar.style.width = Math.min(100, (s.t / sim.sc.goal) * 100) + '%';
+    ? `[DAY] Sun ${fmt(Math.asin(d.sunE) * 57.3, 0)} deg`
+    : `[NIGHT] Ext ${fmt(d.textC, 0)} C`;
+  ui.clockSub.textContent = `${phaseTag} | Goal ${sim.sc.goal} h${s.won ? ' [OK]' : ''}`;
+  ui.missionBar.style.width = `${Math.min(100, (s.t / sim.sc.goal) * 100)}%`;
 
-  // Підписи під 6 повзунками керування
+  // 3. Підписи під 6 повзунками
   const dir = d.pump > 0.01 ? 'Tank -> Wall ' : d.pump < -0.01 ? 'Wall -> Tank ' : 'Idle ';
-  valueLabels.pump.textContent = dir + fmt(Math.abs(d.pump)) + ' L/h | ' + fmt(d.loads.pump, 2) + ' kW';
-  valueLabels.ogs.textContent = fmt(ctl.ogs * 100, 0) + '% | ' + fmt(d.ogsO2, 2) + ' kg O2/h | ' + fmt(d.loads.ogs, 2) + ' kW';
-  valueLabels.scrub.textContent = fmt(ctl.scrub * 100, 0) + '% | CO2 ' + fmt(d.removal, 2) + ' kg/h | ' + fmt(d.loads.scrub, 2) + ' kW';
-  valueLabels.led.textContent = fmt(ctl.led * 100, 0) + '% | ' + fmt(d.yield, 0) + ' kcal/h | ' + fmt(d.loads.led, 1) + ' kW';
-  valueLabels.drill.textContent = fmt(ctl.drill * 100, 0) + '% | ' + fmt(d.ice, 2) + ' L/h | ' + fmt(d.loads.drill, 1) + ' kW';
-  valueLabels.nuc.textContent = fmt(ctl.nuc, 1) + ' kWe | heat leak ' + fmt(K.REACTOR_HEAT * ctl.nuc, 1) + ' kW';
+  valueLabels.pump.textContent = `${dir}${fmt(Math.abs(d.pump))} L/h | ${fmt(d.loads.pump, 2)} kW`;
+  valueLabels.ogs.textContent = `${fmt(ctl.ogs * 100, 0)}% | ${fmt(d.ogsO2, 2)} kg O2/h | ${fmt(d.loads.ogs, 2)} kW`;
+  valueLabels.scrub.textContent = `${fmt(ctl.scrub * 100, 0)}% | CO2 ${fmt(d.removal, 2)} kg/h | ${fmt(d.loads.scrub, 2)} kW`;
+  valueLabels.led.textContent = `${fmt(ctl.led * 100, 0)}% | ${fmt(d.yield, 0)} kcal/h | ${fmt(d.loads.led, 1)} kW`;
+  valueLabels.drill.textContent = `${fmt(ctl.drill * 100, 0)}% | ${fmt(d.ice, 2)} L/h | ${fmt(d.loads.drill, 1)} kW`;
+  valueLabels.nuc.textContent = `${fmt(ctl.nuc, 1)} kWe | heat leak ${fmt(K.REACTOR_HEAT * ctl.nuc, 1)} kW`;
 
+  // 4. Кнопки та смужка виходу астронавтів EVA
+  const evaActive = s.eva.left > 0;
+  ui.evaBar.style.width = evaActive ? `${(1 - s.eva.left / K.EVA_H) * 100}%` : '0%';
+  ui.evaText.textContent = evaActive ? `EVA (${s.eva.mode}): ${fmt(s.eva.left, 1)} h left` : 'Crew inside. Airlock ready.';
+  ui.evaClean.disabled = evaActive || !!s.over;
+  ui.evaHeap.disabled = evaActive || !!s.over;
 
-  // Діаграма генерації та споживання електроенергії
+  // 5. Діаграма потужності
   const rows = [
     ['Solar', d.solarKW, true],
     ['Reactor', d.nucKW, true],
@@ -342,13 +502,37 @@ function updateUI() {
     ['Hydro LED', d.loads.led, false],
     ['Ice Drill', d.loads.drill, false]
   ];
-
   ui.loads.innerHTML = rows.map(([label, kw, isGen]) => {
-    const width = Math.min(100, (kw / 30) * 100);
-    const rowClass = isGen ? 'load-row gen' : 'load-row';
-    return `<div class="${rowClass}"><span>${label}</span><div class="bar"><i style="width:${width}%"></i></div><span>${fmt(kw)}</span></div>`;
+    const w = Math.min(100, (kw / 30) * 100);
+    return `<div class="${isGen ? 'load-row gen' : 'load-row'}"><span>${label}</span><div class="bar"><i style="width:${w}%"></i></div><span>${fmt(kw)}</span></div>`;
+  }).join('');
+
+  // 6. Таблиця другорядних складів
+  const stores = [
+    ['Grey water', `${fmt(s.grey, 0)} L`],
+    ['Biomass H2O', `${fmt(s.biomassW, 1)} L`],
+    ['H2 store', `${fmt(s.h2, 2)} kg`],
+    ['CO2 store', `${fmt(s.co2store, 1)} kg`],
+    ['Regolith', `${fmt(s.regolith, 0)} g/cm2`],
+    ['Shield sigma', `${fmt(d.sigma, 0)} g/cm2`],
+    ['Crop health', `${fmt(s.crop * 100, 0)}%`],
+    ['Safe Wall', `${fmt(sim.shieldSafe(), 0)} L`]
+  ];
+  ui.stores.innerHTML = stores.map(([label, val]) => `<span>${label}</span><b>${val}</b>`).join('');
+
+  // 7. Підказки інженерного асистента
+  const tagMap = { crit: '[CRIT] ', warn: '[WARN] ', info: '[INFO] ' };
+  ui.assistant.innerHTML = sim.advisories().map(item =>
+    `<div class="adv ${item.lvl}">${tagMap[item.lvl]}${item.txt}</div>`
+  ).join('');
+
+  // 8. Бортовий журнал подій
+  ui.log.innerHTML = sim.log.slice(-20).reverse().map(entry => {
+    const hrs = String(Math.floor(entry.t)).padStart(3, '0');
+    return `<div class="${entry.l}">[T+${hrs}h] ${entry.msg}</div>`;
   }).join('');
 }
+
 
 let lastTime = performance.now();
 function frame(now) {
@@ -374,32 +558,63 @@ function frame(now) {
   requestAnimationFrame(frame);
 }
 
-
-
-
-
-//ЗАГЛУШКА
-const K = { SHIELD_CAP: 900, TANK_CAP: 700, BATT_CAP: 120, REACTOR_HEAT: 1.5, STEP: 0.25, SIGMA_SAFE: 70, WATER_SIGMA: 0.1 };
-sim = {
-  sc: { goal: 168 },
-  ctl: { pump: 0.2, ogs: 0.15, scrub: 0.35, led: 0.8, drill: 0.2, nuc: 8 },
-  s: { t: 14, shield: 700, tank: 450, battery: 95, regolith: 30, dustEff: 0.85, crop: 0.92, eva: { mode: null, left: 0 } },
-  d: {
-    o2kPa: 21.2, co2ppm: 700, sigma: 100, sunE: 0.85, phase: 1.1, textC: 12,
-    speExt: 0, speIn: 0,
-    solarKW: 18.4, ice: 2.45, yield: 320, nucKW: 8.0, pump: 1.5, ogsO2: 0.14, removal: 0.16,
-    cropCO2: 0.05, cropO2: 0.04,
-    loads: { base: 1.5, hvac: 2.1, pump: 0.4, ogs: 1.2, scrub: 0.8, led: 3.2, drill: 1.5 }
-  },
-  shieldSafe() {
-    return Math.max(150, (K.SIGMA_SAFE - this.s.regolith) / K.WATER_SIGMA);
+function checkEnd() {
+  const s = sim.s;
+  if (s.over && !endShown) {
+    endShown = true;
+    openModal(
+      `<span class="tag" style="background:#ff4a5e">MISSION FAILED</span><br>${s.over.why}`,
+      `<p>Failed at T+${Math.floor(s.t)} h. Dose: ${fmt(s.dose, 1)} mSv, Wall: ${fmt(s.shield, 0)} L.</p>`,
+      [{ label: 'Retry Mission', fn: () => loadMission(sim.id) }]
+    );
+  } else if (s.won && !winShown && !s.over) {
+    winShown = true;
+    openModal(
+      `<span class="tag" style="background:#3dffa0">MISSION SUCCESS</span><br>${sim.sc.name}`,
+      `<p>You survived ${sim.sc.goal} hours! Dose: ${fmt(s.dose, 1)} mSv, Wall: ${fmt(s.shield, 0)} L.</p>`,
+      [
+        { label: 'Continue Sandbox', fn: closeModal },
+        { label: 'Next Mission', fn: () => loadMission((sim.id % 3) + 1) }
+      ]
+    );
   }
-};
-resizeCanvas();
-updateUI();
-function testLoop(t) {
-  animTime = t / 1000;
-  drawScene();
-  requestAnimationFrame(testLoop);
 }
-requestAnimationFrame(testLoop);
+
+function init() {
+  // 1. Підготовка карток та полотна
+  buildCards();
+  resizeCanvas();
+  window.addEventListener('resize', resizeCanvas);
+
+  // 2. Клік по круглих іконках ? на сцені Canvas
+  canvas.addEventListener('click', (e) => {
+    const r = canvas.getBoundingClientRect();
+    const x = (e.clientX - r.left - viewOffsetX) / viewScale;
+    const y = (e.clientY - r.top - viewOffsetY) / viewScale;
+    const hit = helpHits.find(h => Math.hypot(h.x - x, h.y - y) < 12);
+    if (hit) showBrief(hit.key);
+  });
+
+  // 3. Повзунки, кнопки швидкості та кнопки ? на бічній панелі
+  CONTROL_NAMES.forEach(k => sliders[k].addEventListener('input', readSliders));
+  ui.speedButtons.forEach(btn => {
+    btn.onclick = () => { if (!modalOpen) setSpeed(Number(btn.dataset.speed)); };
+  });
+  document.querySelectorAll('.help').forEach(el => {
+    el.onclick = () => showBrief(el.dataset.help);
+  });
+
+  // 4. Кнопки керування місією, модальним вікном та виходами EVA
+  ui.missionSelect.onchange = (e) => loadMission(Number(e.target.value));
+  document.getElementById('btnReset').onclick = () => loadMission(sim.id);
+  document.getElementById('btnBrief').onclick = showMissionIntro;
+  document.getElementById('modalClose').onclick = closeModal;
+  ui.evaClean.onclick = () => { sim.startEVA('clean'); updateUI(); };
+  ui.evaHeap.onclick = () => { sim.startEVA('heap'); updateUI(); };
+
+  // 5. Старт Місії 1 та запуск головного циклу анімації
+  loadMission(1);
+  requestAnimationFrame(frame);
+}
+
+init();
