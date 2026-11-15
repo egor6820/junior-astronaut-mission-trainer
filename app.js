@@ -118,7 +118,6 @@ function loadMission(id) {
   showMissionIntro();
 }
 
-
 // 2D Technical Cross-Section Schematic on Canvas
 const canvas = document.getElementById('view'), ctx = canvas.getContext('2d');
 const VIEW_W = 1000, VIEW_H = 600, GROUND_Y = 420, DOME_X = 460;
@@ -128,25 +127,37 @@ const helpHits = [], STARS = [];
 for (let i = 0; i < 35; i++) {
   STARS.push({ x: Math.random() * VIEW_W, y: Math.random() * (GROUND_Y - 30) });
 }
+
 function resizeCanvas() {
   const r = canvas.parentElement.getBoundingClientRect();
-  canvas.width = Math.max(1, Math.floor(r.width)); canvas.height = Math.max(1, Math.floor(r.height));
+  canvas.width = Math.max(1, Math.floor(r.width));
+  canvas.height = Math.max(1, Math.floor(r.height));
   viewScale = Math.min(canvas.width / VIEW_W, canvas.height / VIEW_H);
-  viewOffsetX = (canvas.width - VIEW_W * viewScale) / 2; viewOffsetY = (canvas.height - VIEW_H * viewScale) / 2;
-}
-function drawText(txt, x, y, color, size, align) {
-  ctx.fillStyle = color || '#9fe8ff'; ctx.font = (size || 11) + 'px Consolas, monospace';
-  ctx.textAlign = align || 'center'; ctx.fillText(txt, x, y);
+  viewOffsetX = (canvas.width - VIEW_W * viewScale) / 2;
+  viewOffsetY = (canvas.height - VIEW_H * viewScale) / 2;
 }
 
+function drawText(txt, x, y, color, size, align) {
+  ctx.fillStyle = color || '#9fe8ff';
+  ctx.font = (size || 11) + 'px Consolas, monospace';
+  ctx.textAlign = align || 'center';
+  ctx.fillText(txt, x, y);
+}
+
+// Малювання круглої іконки довідки ?
 function drawHelp(x, y, key) {
   helpHits.push({ x: x, y: y, key: key });
-  ctx.beginPath(); ctx.arc(x, y, 9, 0, Math.PI * 2);
-  ctx.fillStyle = '#0a2438'; ctx.fill(); ctx.strokeStyle = '#3de0ff'; ctx.lineWidth = 1.5; ctx.stroke();
+  ctx.beginPath();
+  ctx.arc(x, y, 9, 0, Math.PI * 2);
+  ctx.fillStyle = '#0a2438';
+  ctx.fill();
+  ctx.strokeStyle = '#3de0ff';
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
   drawText('?', x, y + 4, '#3de0ff', 12);
 }
 
-// Малювання Арки купола
+// Малювання кільцевої арки купола
 function drawDomeRing(outerR, innerR, color) {
   ctx.beginPath();
   ctx.arc(DOME_X, GROUND_Y, outerR, Math.PI, 0);
@@ -156,6 +167,7 @@ function drawDomeRing(outerR, innerR, color) {
   ctx.fill();
 }
 
+// Малювання фігурки астронавта
 function drawAstronaut(x, y) {
   ctx.fillStyle = '#e8eef5';
   ctx.fillRect(x - 4, y - 14, 8, 14);
@@ -166,10 +178,33 @@ function drawAstronaut(x, y) {
   ctx.fillRect(x - 2, y - 20, 5, 3);
 }
 
+// Малювання інженерної труби з анімацією потоку
+function drawPipe(points, color, active, reverse) {
+  // Ламана лінія труби по точках
+  ctx.beginPath();
+  points.forEach(([x, y], index) => {
+    if (index === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  });
 
+  // Шар 1: нерухомий корпус труби
+  ctx.setLineDash([]);
+  ctx.strokeStyle = '#16344d';
+  ctx.lineWidth = 5;
+  ctx.stroke();
 
+  // Шар 2: рухомий кольоровий потік (пунктир)
+  if (active) {
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 3;
+    ctx.setLineDash([6, 8]);
+    ctx.lineDashOffset = (reverse ? 1 : -1) * animTime * 28;
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+}
 
-// Перевірка порогів тривоги
+// Перевірка порогів тривоги для карток телеметрії
 function band(v, critLow, warnLow, warnHigh, critHigh) {
   if ((critLow !== null && v < critLow) || (critHigh !== null && v > critHigh)) return 'crit';
   if ((warnLow !== null && v < warnLow) || (warnHigh !== null && v > warnHigh)) return 'warn';
@@ -208,115 +243,51 @@ function buildCards() {
   });
 }
 
-
-
 function drawScene() {
   ctx.setTransform(1, 0, 0, 1, 0, 0);
-  ctx.fillStyle = '#030810'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = '#030810';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
   ctx.setTransform(viewScale, 0, 0, viewScale, viewOffsetX, viewOffsetY);
   helpHits.length = 0;
+
   const s = sim.s, d = sim.d;
   if (!d.o2kPa) return;
+
   // 1. Sky, Stars, Sun & Solar Storm Tint
   ctx.fillStyle = '#ffffff';
   for (let i = 0; i < STARS.length; i++) {
     ctx.fillRect(STARS[i].x, STARS[i].y, 2, 2);
   }
-  if (d.speExt > 0.3) { ctx.fillStyle = 'rgba(200, 30, 50, 0.18)'; ctx.fillRect(0, 0, VIEW_W, GROUND_Y); }
+  if (d.speExt > 0.3) {
+    ctx.fillStyle = 'rgba(200, 30, 50, 0.18)';
+    ctx.fillRect(0, 0, VIEW_W, GROUND_Y);
+  }
   if (d.sunE > 0) {
-    ctx.beginPath(); ctx.arc(500 - 420 * Math.cos(d.phase), GROUND_Y - 310 * Math.sin(d.phase), 18, 0, Math.PI * 2);
-    ctx.fillStyle = '#ffd23d'; ctx.fill();
+    ctx.beginPath();
+    ctx.arc(500 - 420 * Math.cos(d.phase), GROUND_Y - 310 * Math.sin(d.phase), 18, 0, Math.PI * 2);
+    ctx.fillStyle = '#ffd23d';
+    ctx.fill();
   }
+
   // 2. Ground & Animated Flow Pipes
-  ctx.fillStyle = '#1b2632'; ctx.fillRect(0, GROUND_Y, VIEW_W, VIEW_H - GROUND_Y);
-  ctx.strokeStyle = '#3de0ff'; ctx.lineWidth = 2;
-  ctx.beginPath(); ctx.moveTo(0, GROUND_Y); ctx.lineTo(VIEW_W, GROUND_Y); ctx.stroke();
-
-
-  function drawPipe(points, color, active, reverse) {
-  // Ламана лінію труби по точках
-  ctx.beginPath();
-  points.forEach(([x, y], index) => {
-    if (index === 0) ctx.moveTo(x, y);
-    else ctx.lineTo(x, y);
-  });
-
-  // Шар 1: нерухомий корпус труби
-  ctx.setLineDash([]);
-  ctx.strokeStyle = '#16344d';
-  ctx.lineWidth = 5;
-  ctx.stroke();
-
-  // Шар 2: рухомий кольоровий потік (пунктир)
-  if (active) {
-    ctx.strokeStyle = color;
-    ctx.lineWidth = 3;
-    ctx.setLineDash([6, 8]);
-    ctx.lineDashOffset = (reverse ? 1 : -1) * animTime * 28;
-    ctx.stroke();
-    ctx.setLineDash([]);
-  }
-}
-
-  // 4. Central Habitat Dome (Regolith + Water-Wall + Interior)
-  const rInner = 135;
-  const rOuter = 162;
-  const rReg = rOuter + 6 + s.regolith * 0.2;
-
-  // Зовнішній насип
-  drawDomeRing(rReg, rOuter, '#6e6556');
-
-  // Водяна стіна (трафарет арки + стовп води знизу)
-  ctx.save();
-  drawDomeRing(rOuter, rInner, '#091b2a');
-  ctx.clip();
-  const wallH = (s.shield / K.SHIELD_CAP) * rOuter;
-  ctx.fillStyle = '#1f8fff';
-  ctx.fillRect(DOME_X - rOuter, GROUND_Y - wallH, rOuter * 2, wallH);
-  ctx.restore();
-
-  // Внутрішня житлова кабіна
-  ctx.beginPath();
-  ctx.arc(DOME_X, GROUND_Y, rInner, Math.PI, 0);
-  ctx.closePath();
-  ctx.fillStyle = '#0d2638';
-  ctx.fill();
+  ctx.fillStyle = '#1b2632';
+  ctx.fillRect(0, GROUND_Y, VIEW_W, VIEW_H - GROUND_Y);
   ctx.strokeStyle = '#3de0ff';
   ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(0, GROUND_Y);
+  ctx.lineTo(VIEW_W, GROUND_Y);
   ctx.stroke();
 
-  // Центральна установка ECLSS
-  ctx.fillStyle = '#13324a';
-  ctx.fillRect(DOME_X - 75, GROUND_Y - 62, 150, 50);
-  ctx.strokeRect(DOME_X - 75, GROUND_Y - 62, 150, 50);
+  // Інженерні труби та кабелі між модулями бази
+  drawPipe([[120, GROUND_Y], [120, 510], [510, 510], [510, 480]], '#ffd23d', d.solarKW > 0.1);        // Сонце - Акумулятор
+  drawPipe([[900, GROUND_Y], [900, 520], [530, 520], [530, 480]], '#ffd23d', d.nucKW > 0.1);          // Реактор - Акумулятор
+  drawPipe([[150, 520], [340, 520], [340, 480]], '#46b4ff', d.ice > 0.01);                          // Бур льodу - Бак води
+  drawPipe([[360, 440], [320, 440], [320, 390]], '#46b4ff', Math.abs(d.pump) > 0.1, d.pump < 0);    // Бак - Водяна стіна
+  drawPipe([[580, 380], [680, 380]], '#ff4a5e', d.cropCO2 > 0.001);                                 // CO2: Купол - Теплиця
+  drawPipe([[680, 400], [580, 400]], '#3dffa0', d.cropO2 > 0.001);                                  // O2: Теплиця - Купол
 
-  // Показники та кнопки довідок
-  drawText('OGS + SABATIER ECLSS', DOME_X, GROUND_Y - 40, '#3de0ff', 10);
-  drawText('O2 ' + fmt(d.o2kPa, 1) + ' kPa | CO2 ' + fmt(d.co2ppm, 0) + ' ppm', DOME_X, GROUND_Y - 22, '#fff', 10);
-  drawText('WATER-WALL ' + fmt(s.shield, 0) + ' L | SIGMA ' + fmt(d.sigma, 0) + ' g/cm2', DOME_X, GROUND_Y - rReg - 14, '#7fd6ff', 11);
-
-  drawHelp(DOME_X - 135, GROUND_Y - rReg - 16, 'eclss');
-  drawHelp(DOME_X + 135, GROUND_Y - rReg - 16, 'shield');
-  drawHelp(DOME_X - 92, GROUND_Y - 46, 'ogs');
-  drawHelp(DOME_X + 92, GROUND_Y - 46, 'sabatier');
-
-
-  // Астронавти в куполі та на виході EVA
-  drawAstronaut(DOME_X - 95, GROUND_Y);
-  drawAstronaut(DOME_X + 95, GROUND_Y);
-  if (s.eva.left <= 0) {
-    drawAstronaut(DOME_X - 112, GROUND_Y);
-    drawAstronaut(DOME_X + 112, GROUND_Y);
-  } else if (s.eva.mode === 'clean') {
-    drawAstronaut(215, GROUND_Y);
-    drawAstronaut(232, GROUND_Y);
-  } else {
-    drawAstronaut(635, GROUND_Y);
-    drawAstronaut(652, GROUND_Y);
-  }
-
-
-  // 3. Solar Array & Ice Drill
+  // 3. Solar Array & Ice Drill (Лівий фланг: сонячна батарея та бур льоду)
   // Сонячна панель на опорі
   ctx.fillStyle = d.sunE > 0 ? '#1c56a8' : '#102544';
   ctx.fillRect(50, GROUND_Y - 55, 140, 24);
@@ -341,9 +312,65 @@ function drawScene() {
   drawText(fmt(d.ice, 2) + ' L/h', 150, GROUND_Y + 155, '#46b4ff', 10);
   drawHelp(198, GROUND_Y + 145, 'ice');
 
-  // 5. Subfloor Tanks (H2O & Batt), Hydroponics Bay & Kilopower Reactor
+  // 4. Центральний купол, водяна стіна, кабіна та екіпаж)
+  const rInner = 135;
+  const rOuter = 162;
+  const rReg = rOuter + 6 + s.regolith * 0.2;
+
+  // Зовнішній захисний насип реголіту
+  drawDomeRing(rReg, rOuter, '#6e6556');
+
+  // Водяна стіна
+  ctx.save();
+  drawDomeRing(rOuter, rInner, '#091b2a');
+  ctx.clip();
+  const wallH = (s.shield / K.SHIELD_CAP) * rOuter;
+  ctx.fillStyle = '#1f8fff';
+  ctx.fillRect(DOME_X - rOuter, GROUND_Y - wallH, rOuter * 2, wallH);
+  ctx.restore();
+
+  // Внутрішня житлова кабіна
+  ctx.beginPath();
+  ctx.arc(DOME_X, GROUND_Y, rInner, Math.PI, 0);
+  ctx.closePath();
+  ctx.fillStyle = '#0d2638';
+  ctx.fill();
+  ctx.strokeStyle = '#3de0ff';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  // Центральна установка життєзабезпечення ECLSS
+  ctx.fillStyle = '#13324a';
+  ctx.fillRect(DOME_X - 75, GROUND_Y - 62, 150, 50);
+  ctx.strokeRect(DOME_X - 75, GROUND_Y - 62, 150, 50);
+
+  // Показники купола та кнопки довідок
+  drawText('OGS + SABATIER ECLSS', DOME_X, GROUND_Y - 40, '#3de0ff', 10);
+  drawText('O2 ' + fmt(d.o2kPa, 1) + ' kPa | CO2 ' + fmt(d.co2ppm, 0) + ' ppm', DOME_X, GROUND_Y - 22, '#fff', 10);
+  drawText('WATER-WALL ' + fmt(s.shield, 0) + ' L | SIGMA ' + fmt(d.sigma, 0) + ' g/cm2', DOME_X, GROUND_Y - rReg - 14, '#7fd6ff', 11);
+
+  drawHelp(DOME_X - 135, GROUND_Y - rReg - 16, 'eclss');
+  drawHelp(DOME_X + 135, GROUND_Y - rReg - 16, 'shield');
+  drawHelp(DOME_X - 92, GROUND_Y - 46, 'ogs');
+  drawHelp(DOME_X + 92, GROUND_Y - 46, 'sabatier');
+
+  // Астронавти в куполі та на виході EVA
+  drawAstronaut(DOME_X - 95, GROUND_Y);
+  drawAstronaut(DOME_X + 95, GROUND_Y);
+  if (s.eva.left <= 0) {
+    drawAstronaut(DOME_X - 112, GROUND_Y);
+    drawAstronaut(DOME_X + 112, GROUND_Y);
+  } else if (s.eva.mode === 'clean') {
+    drawAstronaut(215, GROUND_Y);
+    drawAstronaut(232, GROUND_Y);
+  } else {
+    drawAstronaut(635, GROUND_Y);
+    drawAstronaut(652, GROUND_Y);
+  }
+
+  // 5. Subfloor Tanks, Hydroponics Bay & Kilopower Reactor
   const drawSubTank = (x, label, frac, col) => {
-    // Колір корпуса резервуара
+    // Темний корпус резервуара
     ctx.fillStyle = '#091724';
     ctx.fillRect(x, GROUND_Y + 20, 90, 60);
 
@@ -361,10 +388,7 @@ function drawScene() {
   drawSubTank(335, 'TANK ' + fmt(s.tank, 0) + 'L', s.tank / K.TANK_CAP, '#1f7ae0');
   drawSubTank(485, 'BATT ' + fmt(s.battery, 0) + 'kWh', s.battery / K.BATT_CAP, '#d4a017');
 
-
-
-
-  // Гідропонна теплиця (правий фланг поруч із куполом)
+  // Гідропонна теплиця
   ctx.fillStyle = 'rgba(220, 60, 190, ' + (0.08 + 0.25 * sim.ctl.led) + ')';
   ctx.fillRect(680, GROUND_Y - 75, 130, 75);
   ctx.strokeStyle = '#3de0ff';
@@ -401,17 +425,6 @@ function drawScene() {
   drawText('REACTOR', 900, GROUND_Y - 92, '#3de0ff', 11);
   drawText(fmt(d.nucKW, 1) + ' kWe', 900, GROUND_Y - 80, '#ffd23d', 10);
   drawHelp(945, GROUND_Y - 85, 'reactor');
-
-
-  // Інженерні труби та кабелі між модулями бази
-  drawPipe([[120, GROUND_Y], [120, 510], [510, 510], [510, 480]], '#ffd23d', d.solarKW > 0.1);        // Сонце - Акумулятор
-  drawPipe([[900, GROUND_Y], [900, 520], [530, 520], [530, 480]], '#ffd23d', d.nucKW > 0.1);          // Реактор - Акумулятор
-  drawPipe([[150, 520], [340, 520], [340, 480]], '#46b4ff', d.ice > 0.01);                          // Бур льоду - Бак води
-  drawPipe([[360, 440], [320, 440], [320, 390]], '#46b4ff', Math.abs(d.pump) > 0.1, d.pump < 0);    // Бак - Водяна стіна
-  drawPipe([[580, 380], [680, 380]], '#ff4a5e', d.cropCO2 > 0.001);                                 // CO2: Купол - Теплиця
-  drawPipe([[680, 400], [580, 400]], '#3dffa0', d.cropO2 > 0.001);                                  // O2: Теплиця - Купол
-
-
 
   // 6. Radiation Lines & Top Banner
   const isStorm = d.speExt > 0.3;
@@ -533,7 +546,7 @@ function updateUI() {
   }).join('');
 }
 
-
+// Головний ігровий цикл із фіксованим кроком фізики
 let lastTime = performance.now();
 function frame(now) {
   const dt = Math.min(0.1, (now - lastTime) / 1000);
@@ -558,6 +571,7 @@ function frame(now) {
   requestAnimationFrame(frame);
 }
 
+// Перевірка умов поразки або перемоги місії
 function checkEnd() {
   const s = sim.s;
   if (s.over && !endShown) {
